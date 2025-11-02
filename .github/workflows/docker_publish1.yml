@@ -25,6 +25,13 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Generate Beijing time tag
+        id: time
+        run: |
+          BEIJING_TIME=$(TZ='Asia/Shanghai' date +'%Y%m%d%H%M')
+          echo "tag=${BEIJING_TIME}" >> $GITHUB_OUTPUT
+          echo "Generated tag: ${BEIJING_TIME}"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -33,4 +40,4 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            wrhsd/gateway:250807-test
+            wrhsd/gateway:${{ steps.time.outputs.tag }}
