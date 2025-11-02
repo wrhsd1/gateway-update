@@ -143,3 +143,21 @@ plugins/**/.creds.json
 plugins/**/creds.json
 plugins/**/.parameters.json
 src/handlers/tests/.creds.json
+
+# Test files
+test_*.js
+test-*.js
+
+# Public log files
+public/log.log
+public/*.log
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Sensitive files
+*.key
+*.pem
+secrets/

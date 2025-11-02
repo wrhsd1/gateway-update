@@ -4,6 +4,8 @@ import Providers from '../providers';
 import { OpenAIChatCompleteJSONToStreamResponseTransform } from '../providers/openai/chatComplete';
 import { OpenAICompleteJSONToStreamResponseTransform } from '../providers/openai/complete';
 import { Options, Params } from '../types/requestBody';
+import * as fs from 'fs';
+import * as path from 'path';
 
 import {
   handleAudioResponse,
@@ -63,6 +65,33 @@ export async function responseHandler(
       params: gatewayRequest,
       providerOptions,
     }).responseTransforms;
+  }
+
+  // Get the current time in Beijing timezone (GMT+8) with custom format YYYY-MM-DD HH:mm:ss
+  const beijingTime = new Date().toLocaleString("en-US", { timeZone: "Asia/Shanghai" });
+
+  // Log the request time, provider, request URL, response status, and model value
+  console.log(`${response.status}:${beijingTime}|${gatewayRequest.model}|${requestURL}`);
+
+  // Path to the log file
+  const logFilePath = path.join(process.cwd(), 'public', 'log.log');
+
+  // Ensure the 'public' directory exists
+  if (!fs.existsSync(path.join(process.cwd(), 'public'))) {
+    fs.mkdirSync(path.join(process.cwd(), 'public'));
+  }
+
+  // Log content to be written
+  const logContent = `${response.status}:${beijingTime}|${gatewayRequest.model}|${requestURL}\n`;
+
+  // Read existing logs and limit to latest 1000 entries
+  if (fs.existsSync(logFilePath)) {
+    const existingLogs = fs.readFileSync(logFilePath, 'utf-8');
+    const logLines = existingLogs.split('\n').filter(line => line.trim());
+    const limitedLogs = [logContent.trim(), ...logLines.slice(0, 999)].join('\n') + '\n';
+    fs.writeFileSync(logFilePath, limitedLogs);
+  } else {
+    fs.writeFileSync(logFilePath, logContent);
   }
 
   // Checking status 200 so that errors are not considered as stream mode.

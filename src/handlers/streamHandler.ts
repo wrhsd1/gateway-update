@@ -246,8 +246,51 @@ export async function handleNonStreamingMode(
   }
 
   const isJsonParsingRequired = responseTransformer || areSyncHooksAvailable;
-  const originalResponseBodyJson: Record<string, any> | null =
-    isJsonParsingRequired ? await response.json() : null;
+  let originalResponseBodyJson: Record<string, any> | null = null;
+
+  if (isJsonParsingRequired) {
+    try {
+      // Clone the response before reading to avoid consuming the stream
+      const clonedResponse = response.clone();
+      
+      // Check if response has content-encoding header that might cause issues
+      const contentEncoding = clonedResponse.headers.get('content-encoding');
+      if (contentEncoding) {
+        // Create a new response without the content-encoding header to avoid decompression issues
+        const headers = new Headers(clonedResponse.headers);
+        headers.delete('content-encoding');
+        headers.delete('content-length');
+        
+        const responseBody = await clonedResponse.arrayBuffer();
+        const newResponse = new Response(responseBody, {
+          status: clonedResponse.status,
+          statusText: clonedResponse.statusText,
+          headers: headers
+        });
+        originalResponseBodyJson = await newResponse.json();
+      } else {
+        originalResponseBodyJson = await clonedResponse.json();
+      }
+    } catch (error) {
+      console.error('Error parsing response JSON in non-streaming mode:', error);
+      // If JSON parsing fails, try to get text and see if we can work with it
+      try {
+        const text = await response.clone().text();
+        console.log(`Response text: ${text.substring(0, 200)}...`);
+        // Try to parse as JSON manually
+        originalResponseBodyJson = JSON.parse(text);
+      } catch (textError) {
+        console.error('Failed to parse response as JSON or text:', textError);
+        // Return the original response if we can't parse it
+        return {
+          response: new Response(response.body, response),
+          json: null,
+          originalResponseBodyJson: null,
+        };
+      }
+    }
+  }
+
   let responseBodyJson = originalResponseBodyJson;
   if (responseTransformer) {
     responseBodyJson = responseTransformer(

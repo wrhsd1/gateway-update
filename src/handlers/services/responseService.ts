@@ -122,11 +122,12 @@ export class ResponseService {
     }
 
     // Remove headers directly
-    if (getRuntimeKey() == 'node') {
+    const encoding = response.headers.get('content-encoding');
+    if (encoding?.includes('br') || getRuntimeKey() == 'node') {
       response.headers.delete('content-encoding');
     }
     response.headers.delete('content-length');
-    // response.headers.delete('transfer-encoding');
+    response.headers.delete('transfer-encoding');
 
     return response;
   }
