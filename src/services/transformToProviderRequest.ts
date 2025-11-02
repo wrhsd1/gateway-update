@@ -73,8 +73,9 @@ export const transformUsingProviderConfig = (
   providerOptions?: Options
 ) => {
   const transformedRequest: { [key: string]: any } = {};
+  const processedParams = new Set<string>();
 
-  // For each parameter in the provider's configuration
+  // First, process all parameters defined in the provider's configuration
   for (const configParam in providerConfig) {
     // Get the config for this parameter
     let paramConfigs = providerConfig[configParam];
@@ -94,6 +95,7 @@ export const transformUsingProviderConfig = (
           paramConfig?.param as string,
           value
         );
+        processedParams.add(configParam);
       }
       // If the parameter is not present in the incoming request body but is required, set it to the default value
       else if (
@@ -109,6 +111,19 @@ export const transformUsingProviderConfig = (
         }
         // Set the transformed parameter to the default value
         setNestedProperty(transformedRequest, paramConfig.param, value);
+        processedParams.add(configParam);
+      }
+    }
+  }
+
+  // Then, pass through any additional parameters not defined in the config
+  // This allows custom provider-specific parameters to be forwarded
+  for (const paramKey in params) {
+    if (!processedParams.has(paramKey) && params[paramKey] !== undefined) {
+      // Skip internal/meta parameters that shouldn't be forwarded
+      const skipParams = ['config', 'overrideParams'];
+      if (!skipParams.includes(paramKey)) {
+        transformedRequest[paramKey] = params[paramKey];
       }
     }
   }
@@ -164,6 +179,9 @@ const transformToProviderRequestFormData = (
     providerConfig = providerConfig[fn];
   }
   const formData = new FormData();
+  const processedParams = new Set<string>();
+
+  // First, process parameters defined in the provider config
   for (const configParam in providerConfig) {
     let paramConfigs = providerConfig[configParam];
     if (!Array.isArray(paramConfigs)) {
@@ -172,8 +190,8 @@ const transformToProviderRequestFormData = (
     for (const paramConfig of paramConfigs) {
       if (configParam in params) {
         const value = getValue(configParam, params, paramConfig);
-
         formData.append(paramConfig.param, value);
+        processedParams.add(configParam);
       } else if (
         paramConfig &&
         paramConfig.required &&
@@ -186,9 +204,21 @@ const transformToProviderRequestFormData = (
           value = paramConfig.default;
         }
         formData.append(paramConfig.param, value);
+        processedParams.add(configParam);
       }
     }
   }
+
+  // Then, pass through any additional parameters not defined in the config
+  for (const paramKey in params) {
+    if (!processedParams.has(paramKey) && params[paramKey] !== undefined) {
+      const skipParams = ['config', 'overrideParams'];
+      if (!skipParams.includes(paramKey)) {
+        formData.append(paramKey, params[paramKey]);
+      }
+    }
+  }
+
   return formData;
 };
 
